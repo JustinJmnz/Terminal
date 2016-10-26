@@ -13,10 +13,35 @@
 #include <iostream>
 #include <string.h>
 #include <algorithm>
+#include <sstream>
 
 #define MAX_LINE  80
 using namespace std;
 
+string getOutputFromCommand(string command) {
+	string output;
+	FILE * stream;
+	const int max_buffer = 256;
+	char buffer[max_buffer];
+	command.append(" 2>&1");
+	int counter = 1;
+	stream = popen(command.c_str(), "r"); // Execute the command, send output to a stream
+	if (stream) {
+	while (!feof(stream)) { // Keep going until eof is encountered
+		if (fgets(buffer, max_buffer, stream) != NULL) {
+			// Temporary string stream, converting int to string
+			stringstream stream;
+			stream << counter++ << " "; // 1.[space] etc..
+			output.append(stream.str()); // Append stream as string
+			output.append(buffer); // Append executable file name + \n
+			// Reset stream and counter
+			stream.flush();
+		}
+	}
+	pclose(stream); // Close stream
+	}
+	return output;
+}
 int main() {
 	bool should_run = true;
 	// Main Loop
@@ -34,7 +59,10 @@ int main() {
 		if(inputs[0] == "exit" || inputs[0] == "EXIT" || inputs[0] == "Exit") {
 			should_run = false;
 		} else if(inputs[0] == "selection") {
-			cout << "Here" << endl;
+			// Command will find all files executable by user
+			string findFilesCommand = "ls -l | grep  '\\-..x' | awk '{print $NF}'";
+			string filesFound = getOutputFromCommand(findFilesCommand);
+			cout << "Enter Selection: " << endl << filesFound << endl;
 		} else {
 			// Assign parameters from string [] to char * []
 			char * parameters[(MAX_LINE/2) + 1];
