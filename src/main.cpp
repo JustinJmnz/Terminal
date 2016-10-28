@@ -51,13 +51,39 @@ vector<string> fillSelectionsFromFound(string filesFound, char delimiter) {
 	while(getline(stream, token, delimiter)) {
 		temp.push_back(token.erase(0, 2));
 	}
+	stream.flush();
 	return temp;
+}
+void forkAndExecute(char * parameters[]) {
+	// Forking execution
+				pid_t childPID;
+				childPID = fork();
+				if (childPID == 0) { // Child Process
+					int returnStatus;
+					if(parameters[0] == NULL) { // If no arguments
+						returnStatus = execvp(parameters[0], parameters);
+					} else { // If arguments
+						returnStatus = execvp(parameters[0] , parameters);
+						if (returnStatus != 0) { // Error in Child process
+							cout << "Error." << endl << "Child process returned: " << returnStatus << endl;
+							exit(0);
+						}
+					}
+				} else { // Parent Process
+					pid_t otherPID;
+					do { // Keep waiting until Child Process finishes
+						otherPID = wait(&childPID);
+						if(otherPID != childPID) { // Child Process finished
+							break;
+						}
+					} while (otherPID != childPID);
+				}
 }
 int main() {
 	bool should_run = true;
 	// Main Loop
 	while (should_run) {
-		printf("UBos>");
+		cout << "UBos>";
 		fflush(stdout);
 		string inputs[(MAX_LINE/2) + 1];
 		char * parameters[(MAX_LINE/2) + 1];
@@ -70,28 +96,36 @@ int main() {
 		// Check to see if user wants to exit
 		if(inputs[0] == "exit" || inputs[0] == "EXIT" || inputs[0] == "Exit") {
 			should_run = false;
-		} else if(inputs[0] == "selection" && parameters[0] != NULL) {
+		} else if(inputs[0] == "selection") {
 			// Command will find all files executable by user
 			string findFilesCommand = "ls -l | grep  '\\-..x' | awk '{print $NF}'";
 			string filesFound = getOutputFromCommand(findFilesCommand);
-			cout << "Enter Selection: " << endl << filesFound << endl;
-			vector<string> executableFiles = fillSelectionsFromFound(filesFound, '\n');
-//			cout << executableFiles[0] << endl << executableFiles[1] << endl << executableFiles[2] << endl;
+			if(strlen(&filesFound[0u]) == 0) { // If no files found
+				cout << "No executable files found" << endl;
+			} else { // Files found
+				cout << "Enter Selection: " << endl << filesFound << endl;
+				// Get each file name into individual indexes
+				vector<string> executableFiles = fillSelectionsFromFound(filesFound, '\n');
 
-			int userChoice;
-			cin >> userChoice;
-			if(userChoice > executableFiles.size() || userChoice < 1) {
-				cout << "Invalid number" << endl;
-				continue;
+				int userChoice;
+				cin >> userChoice;
+				// Input not in range
+				if(userChoice > executableFiles.size() || userChoice < 1) {
+					cout << "Invalid number" << endl;
+				} else { // Input in range
+					string fileExecuteCmd;
+					// Build up execute command string.. eg) ./a.out
+					ostringstream stringStream;
+					stringStream << "./" << executableFiles[userChoice - 1]; // -1 for array index
+					fileExecuteCmd = stringStream.str(); // Save stream as string
+					stringStream.flush();
+					// Storing command to execute.. eg) ./a.out
+					parameters[0] = &fileExecuteCmd[0u];
+					parameters[1] = NULL;
+					// Execute
+					forkAndExecute(parameters);
+				}
 			}
-			string fileExecuteCmd;
-			ostringstream stringStream;
-			stringStream << "./" << executableFiles[userChoice - 1];
-			fileExecuteCmd = stringStream.str();
-
-			parameters[0] = &fileExecuteCmd[0u];
-			parameters[1] = NULL;
-			break;
 		} else {
 			// Assign parameters from string [] to char * []
 			for (int j = 0; j < (MAX_LINE/2) + 1; j++) {
@@ -99,33 +133,9 @@ int main() {
 					parameters[j] = NULL; // End char * [] with NULL
 					break;
 				}
-//				inputs[j].erase(remove(inputs[j].begin(), inputs[j].end(), '\"'), inputs[j].begin());
 				parameters[j] = &inputs[j][0u]; // Convert string to char *
 			}
-			// Forking execution
-			pid_t childPID;
-			childPID = fork();
-			if (childPID == 0) { // Child Process
-				int returnStatus;
-				if(parameters[0] == NULL) { // If no arguments
-					returnStatus = execvp(parameters[0], parameters);
-				} else { // If arguments
-					returnStatus = execvp(parameters[0] , parameters);
-					if (returnStatus != 0) { // Error in Child process
-						cout << "Error." << endl << "Child process returned: " << returnStatus << endl;
-						exit(0);
-					}
-				}
-			} else { // Parent Process
-				pid_t otherPID;
-				do { // Keep waiting until Child Process finishes
-					otherPID = wait(&childPID);
-					if(otherPID != childPID) { // Child Process finished
-//						cout << "Child Process finished" << endl;
-						break;
-					}
-				} while (otherPID != childPID);
-			}
+			forkAndExecute(parameters);
 		}
 	}
 	return 0;
