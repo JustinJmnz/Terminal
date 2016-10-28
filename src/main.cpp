@@ -14,6 +14,7 @@
 #include <string.h>
 #include <algorithm>
 #include <sstream>
+#include <vector>
 
 #define MAX_LINE  80
 using namespace std;
@@ -42,6 +43,16 @@ string getOutputFromCommand(string command) {
 	}
 	return output;
 }
+vector<string> fillSelectionsFromFound(string filesFound, char delimiter) {
+	vector<string> temp;
+	stringstream stream(filesFound);
+	string token;
+
+	while(getline(stream, token, delimiter)) {
+		temp.push_back(token.erase(0, 2));
+	}
+	return temp;
+}
 int main() {
 	bool should_run = true;
 	// Main Loop
@@ -49,6 +60,7 @@ int main() {
 		printf("UBos>");
 		fflush(stdout);
 		string inputs[(MAX_LINE/2) + 1];
+		char * parameters[(MAX_LINE/2) + 1];
 		int i = 0;
 		// Get input
 		while(cin.get() != '\n') {
@@ -58,14 +70,30 @@ int main() {
 		// Check to see if user wants to exit
 		if(inputs[0] == "exit" || inputs[0] == "EXIT" || inputs[0] == "Exit") {
 			should_run = false;
-		} else if(inputs[0] == "selection") {
+		} else if(inputs[0] == "selection" && parameters[0] != NULL) {
 			// Command will find all files executable by user
 			string findFilesCommand = "ls -l | grep  '\\-..x' | awk '{print $NF}'";
 			string filesFound = getOutputFromCommand(findFilesCommand);
 			cout << "Enter Selection: " << endl << filesFound << endl;
+			vector<string> executableFiles = fillSelectionsFromFound(filesFound, '\n');
+//			cout << executableFiles[0] << endl << executableFiles[1] << endl << executableFiles[2] << endl;
+
+			int userChoice;
+			cin >> userChoice;
+			if(userChoice > executableFiles.size() || userChoice < 1) {
+				cout << "Invalid number" << endl;
+				continue;
+			}
+			string fileExecuteCmd;
+			ostringstream stringStream;
+			stringStream << "./" << executableFiles[userChoice - 1];
+			fileExecuteCmd = stringStream.str();
+
+			parameters[0] = &fileExecuteCmd[0u];
+			parameters[1] = NULL;
+			break;
 		} else {
 			// Assign parameters from string [] to char * []
-			char * parameters[(MAX_LINE/2) + 1];
 			for (int j = 0; j < (MAX_LINE/2) + 1; j++) {
 				if(inputs[j] == ""){ // If no more arguments
 					parameters[j] = NULL; // End char * [] with NULL
